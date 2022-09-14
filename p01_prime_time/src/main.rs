@@ -42,10 +42,6 @@ fn handle(mut s: TcpStream) -> Result<(), Box<dyn Error>> {
                 write_error(&mut s)?;
                 break;
             }
-            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                write_error(&mut s)?;
-                break;
-            }
             res => res,
         }?;
         let req = match json::parse_json(&req_buf) {

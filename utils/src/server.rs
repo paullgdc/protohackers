@@ -1,11 +1,11 @@
 use std::{
-    net::{SocketAddr, TcpListener, TcpStream},
-    thread, error::Error,
+    error::Error,
     io,
+    net::{SocketAddr, TcpListener, TcpStream},
+    thread,
 };
 
 use crate::{log_err, log_info};
-
 
 pub struct Server {
     conn_handler: Box<dyn Fn(TcpStream) -> Result<(), Box<dyn Error>> + Sync>,
@@ -13,7 +13,9 @@ pub struct Server {
 
 impl Server {
     pub fn new<F>(handler: F) -> io::Result<Self>
-    where F: Fn(TcpStream) -> Result<(), Box<dyn Error>> + Sync + 'static{
+    where
+        F: Fn(TcpStream) -> Result<(), Box<dyn Error>> + Sync + 'static,
+    {
         Ok(Self {
             conn_handler: Box::new(handler),
         })
@@ -34,10 +36,16 @@ impl Server {
                         Err(e) => return log_err!("getting peer address: {}", e),
                     };
                     eprintln!("Handling connection from {peer}");
-                    match (self.conn_handler)(conn) {
-                        Ok(()) => log_info!("Connection from {} closed", peer),
-                        Err(e) => log_err!("handling connection from {}: {}", peer, e),
-                    }
+                    match std::panic::catch_unwind(|| (self.conn_handler)(conn)) {
+                        Ok(Ok(())) => {
+                            log_info!("Connection from {} closed", peer)
+                        }
+                        Ok(Err(e)) => log_err!("handling connection from {}: {}", peer, e),
+                        Err(e) => {
+                            log_err!("handling for connection from {} panicked: {}", peer, e);
+                            return;
+                        }
+                    };
                 });
             }
             Ok(())
